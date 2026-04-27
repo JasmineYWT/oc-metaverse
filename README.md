@@ -37,7 +37,7 @@
 ## 🚀 如何使用
 
 ### 1. 打开网页
-直接访问：**https://JasmineYWT.github.io/oc-metaverse/**（替换为你的实际链接）
+直接访问：**https://JasmineYWT.github.io/oc-metaverse/**
 
 ### 2. 配置 AI（必须）
 1. 点击左上角头像进入「妈咪中心」
