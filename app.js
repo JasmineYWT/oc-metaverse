@@ -7032,7 +7032,7 @@ ${post.content}
         } else {
             container.innerHTML = partners.map(partner => {
                 const chat = this.getChat(partner.id);
-                const displayName = chat ? (chat.nickname || chat.remarkName || chat.name) : partner.name;
+                const displayName = chat ? (chat.name || chat.remarkName || chat.nickname) : partner.name;
                 const avatar = partner.avatar || '👤';
                 let avatarContent;
                 if (avatar && typeof avatar === 'string' && (avatar.startsWith('http://') || avatar.startsWith('https://'))) {
@@ -16900,7 +16900,7 @@ clearNPCForm() {
             const dynamicsFreq = this.mammySettings.autoGenerate.dynamics.ocFrequencies || {};
             dynamicsContainer.innerHTML = `<div class="freq-info">动态生成频率（0-10，值越高越频繁）</div>` + ocList.map(oc => {
                 const chat = this.getChat(oc.id);
-                const name = chat?.nickname || chat?.remarkName || chat?.name || oc.name;
+                const name = chat?.name || chat?.remarkName || chat?.nickname || oc.name;
                 const freq = dynamicsFreq[oc.id] ?? 0;
                 return `
                     <div class="oc-freq-item">
@@ -16925,7 +16925,7 @@ clearNPCForm() {
             const forwardFreq = this.mammySettings.autoGenerate.dynamics.ocForwardFrequencies || {};
             forwardOcContainer.innerHTML = ocList.map(oc => {
                 const chat = this.getChat(oc.id);
-                const name = chat?.nickname || chat?.remarkName || chat?.name || oc.name;
+                const name = chat?.name || chat?.remarkName || chat?.nickname || oc.name;
                 const freq = forwardFreq[oc.id] ?? 3;
                 return `
                     <div class="oc-freq-item">
@@ -16953,7 +16953,7 @@ clearNPCForm() {
             const forumPostCounts = this.mammySettings.autoGenerate.forum.ocPostCounts || {};
             forumOcContainer.innerHTML = `<div class="freq-info">频率（0-10，值越高越频繁）</div>` + ocList.map(oc => {
                 const chat = this.getChat(oc.id);
-                const name = chat?.nickname || chat?.remarkName || chat?.name || oc.name;
+                const name = chat?.name || chat?.remarkName || chat?.nickname || oc.name;
                 const freq = forumFreq[oc.id] ?? 0;
                 const postCount = forumPostCounts[oc.id] ?? 1;
                 return `
@@ -22900,9 +22900,9 @@ document.addEventListener('DOMContentLoaded', function() {
     //     }
     // });
     window.showAvatarAlert = () => this.showNotification('头像功能待开发！');
-    document.addEventListener('touchmove', function(e) {
-        if (e.target.closest('.page')) e.preventDefault();
-    }, { passive: false });
+    // document.addEventListener('touchmove', function(e) {
+    //     if (e.target.closest('.page')) e.preventDefault();
+    // }, { passive: false });
 
     // 页面关闭前清理所有定时器
     window.addEventListener('beforeunload', () => {
