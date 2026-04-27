@@ -1,0 +1,1473 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>OC Metaverse</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+</head>
+<body>
+    <div class="phone-container">
+        <!-- 头部区域 -->
+        <header class="header">
+            <div class="avatar" onclick="chatManager.openMammyCenter()">
+                <span>👤</span>
+            </div>
+            <h1 class="title">OC Metaverse</h1>
+        </header>
+
+        <!-- 内容区域 -->
+        <main class="content">
+            <!-- 消息页面 -->
+            <div id="message-page" class="page active">
+                <div id="chat-list" class="chat-list">
+                    <!-- 聊天项将通过JS动态生成 -->
+                </div>
+            </div>
+
+            <!-- 论坛页面 -->
+            <div id="forum-page" class="page">
+                <div class="forum-header">
+                    <h2 class="forum-title">OC论坛</h2>
+                    <div class="forum-actions">
+                                                <button id="create-post-btn" class="create-post-btn">📝 发帖</button>
+                        <button id="refresh-forum-btn" class="create-post-btn" style="background: #4caf50;">🔄 刷新</button>
+                    </div>
+                </div>
+
+                <!-- 搜索栏（固定最上方） -->
+                <div class="forum-search-bar" id="forum-search-bar" style="display: flex; gap: 8px; align-items: center; padding: 8px 15px; background: var(--card-bg); border-bottom: 1px solid var(--border);">
+                    <input type="text" id="tag-search-input" placeholder="🔍 搜索标签/作者/关键词..." style="flex:1; padding:6px 12px; border:1px solid var(--border); border-radius:18px; font-size:13px; outline:none;">
+                    <button onclick="chatManager.searchAll()" style="background: var(--primary); color: white; border: none; border-radius: 18px; padding: 6px 14px; font-size: 13px; cursor: pointer; white-space: nowrap;">搜索</button>
+                </div>
+
+                <!-- 热搜榜折叠按钮 -->
+                <div class="hot-rank-toggle" id="hot-rank-toggle" onclick="chatManager.toggleHotRank()">
+                    <span>🔥 热搜榜</span>
+                    <span id="hot-rank-arrow">▶</span>
+                </div>
+
+                <!-- 热搜榜面板 -->
+                <div id="hot-rank-panel" class="hot-rank-panel" style="display: none;">
+                    <div class="hot-rank-header">
+                        <span class="hot-rank-title">🔥 热搜榜</span>
+                        <div class="hot-rank-tabs">
+                            <button class="hot-rank-tab active" data-period="all">全部</button>
+                            <button class="hot-rank-tab" data-period="today">今日</button>
+                            <button class="hot-rank-tab" data-period="week">本周</button>
+                            <button class="hot-rank-tab" data-period="month">本月</button>
+                        </div>
+                    </div>
+                    <div id="hot-rank-list" class="hot-rank-list">
+                        <!-- 热搜条目动态生成 -->
+                    </div>
+                </div>
+
+                <!-- 标签栏 -->
+                <div class="hot-tags-wrapper">
+                    <button class="hot-tags-scroll left" onclick="document.getElementById('hot-tags-container').scrollLeft -= 200">◀</button>
+                    <div class="hot-tags" id="hot-tags-container">
+                        <span class="hot-tag hot-tag-all" onclick="chatManager.clearTagFilter()">📋 全部</span>
+                    </div>
+                    <button class="hot-tags-scroll right" onclick="document.getElementById('hot-tags-container').scrollLeft += 200">▶</button>
+                </div>
+                <div id="forum-list" class="post-list">
+                    <!-- 帖子列表将动态生成 -->
+                </div>
+            </div>
+
+            <!-- 发帖弹窗 -->
+            <div id="create-post-modal" class="modal">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h3>发布新帖子</h3>
+                        <button class="close-btn" onclick="chatManager.closeCreatePostModal()">✕</button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="form-group">
+                            <label for="post-title-input">帖子标题</label>
+                            <input type="text" id="post-title-input" placeholder="输入帖子标题（必填）">
+                        </div>
+                        <div class="form-group">
+                            <label for="post-content-input">帖子内容</label>
+                            <div class="textarea-with-button">
+                                <textarea id="post-content-input" rows="4" placeholder="分享你的想法..."></textarea>
+                                <button type="button" class="at-button" onclick="chatManager.showAtMenu()">@好友</button>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>图片URL（可选，最多10张）</label>
+                            <div style="display: flex; gap: 8px;">
+                                <input type="text" id="post-image-input" placeholder="输入图片URL" style="flex: 1;">
+                                <button type="button" class="submit-btn" onclick="chatManager.addImageToList()" style="padding: 8px 14px; font-size: 13px;">添加</button>
+                            </div>
+                            <div id="image-url-list" style="display: flex; flex-direction: column; gap: 6px; margin-top: 8px;"></div>
+                            <div id="image-preview" class="image-preview" style="display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px;"></div>
+                            <div style="font-size: 12px; color: var(--text-secondary); margin-top: 4px;">点击"添加"逐张添加图片，已添加的图片会显示在下方。</div>
+                        </div>
+                        <div class="form-group">
+                            <label>标签（可选）</label>
+                            <div style="display: flex; gap: 8px;">
+                                <input type="text" id="post-tag-input" placeholder="输入标签名（无需输入#号）" style="flex: 1;">
+                                <button type="button" class="submit-btn" onclick="chatManager.addTagToList()" style="padding: 8px 14px; font-size: 13px;">添加</button>
+                            </div>
+                            <div id="tag-list" style="display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px;"></div>
+                            <div style="font-size: 12px; color: var(--text-secondary); margin-top: 4px;">点击"添加"逐个添加标签。</div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button class="cancel-btn" onclick="chatManager.closeCreatePostModal()">取消</button>
+                        <button class="submit-btn" onclick="chatManager.submitPost()">发布</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 帖子详情弹窗 -->
+            <div id="post-detail-modal" class="modal">
+                <div class="modal-content post-detail-content">
+                    <div class="modal-header">
+                        <h3>帖子详情</h3>
+                        <button class="close-btn" onclick="chatManager.closePostDetailModal()">✕</button>
+                    </div>
+                    <div class="modal-body" id="post-detail-body">
+                        <!-- 帖子内容将动态生成 -->
+                    </div>
+                    <div class="modal-footer">
+                        <div class="reply-info" id="reply-info" style="display: none;">
+                            <span id="reply-text"></span>
+                            <button class="cancel-reply" onclick="chatManager.cancelReply()">✕</button>
+                        </div>
+                        <div class="comment-input-area">
+                            <input type="text" id="post-comment-input" placeholder="发表你的评论...">
+                            <button class="submit-btn" onclick="chatManager.addCommentFromInput()">发表评论</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            
+            <!-- 联系人页面 -->
+            <div id="contact-page" class="page">
+                <div id="contact-list" class="contact-list">
+                    <!-- 联系人列表将动态生成 -->
+                </div>
+            </div>
+
+            <!-- 动态页面 -->
+            <div id="dynamic-page" class="page">
+                <!-- 顶部栏 -->
+                <div class="dynamic-header">
+                    <h2 class="dynamic-title">动态</h2>
+                    <div class="dynamic-header-actions">
+                        <button id="post-dynamic-btn" class="header-icon-btn" title="发布动态">📷</button>
+                        <button id="refresh-dynamics-btn" class="header-icon-btn" title="刷新">🔄</button>
+                    </div>
+                </div>
+
+                <!-- 动态列表容器 -->
+                <div id="dynamic-list" class="post-list">
+                    <!-- 动态列表将动态生成 -->
+                </div>
+            </div>
+        </main>
+
+        <!-- 妈咪中心（全屏侧滑面板） -->
+<div id="mammy-center-panel" class="mammy-center-panel">
+    <header class="mammy-center-header">
+        <button id="close-mammy-center" class="close-btn" onclick="chatManager.closeMammyCenter()">✕</button>
+        <h2>妈咪中心</h2>
+    </header>
+    <div class="mammy-center-content">
+        <div class="tabs-wrapper">
+            <button class="tab-scroll-btn left" onclick="document.querySelector('.mammy-center-content .tabs').scrollLeft -= 100">◀</button>
+            <div class="tabs">
+                <button class="tab-btn active" data-tab="personal">个人设置</button>
+                <button class="tab-btn" data-tab="worldbooks">世界书管理</button>
+                <button class="tab-btn" data-tab="api">API配置</button>
+                <button class="tab-btn" data-tab="emotions">表情管理</button>
+                <button class="tab-btn" data-tab="auto">自动生成</button>
+                <button class="tab-btn" data-tab="data">数据管理</button>
+            </div>
+            <button class="tab-scroll-btn right" onclick="document.querySelector('.mammy-center-content .tabs').scrollLeft += 100">▶</button>
+        </div>
+        <div class="tab-content active" id="personal-tab">
+            <div class="form-group"><label>昵称</label><input type="text" id="mammy-nickname"></div>
+            <div class="form-group">
+                <label>拍一拍样式（妈咪拍别人/拍自己）</label>
+                <input type="text" id="mammy-pat-style" placeholder="例如：拍了拍我的头" value="拍了拍我的头">
+                <div style="font-size: 12px; color: var(--text-secondary); margin-top: 4px;">示例：拍了拍我的头 → 显示"妈咪 拍了拍我的头"</div>
+            </div>
+            <div class="form-group"><label>头像（emoji或图片URL）</label><input type="text" id="mammy-avatar" placeholder="输入emoji字符或图片URL（http://...）"></div>
+            <div class="form-group"><label>主页面壁纸URL</label><input type="text" id="mammy-wallpaper" placeholder="输入背景图片URL（留空为无）"></div>
+            <div class="form-group">
+                <label>壁纸透明度（%）</label>
+                <input type="range" id="mammy-wallpaper-opacity" min="0" max="100" value="100">
+                <span id="wallpaper-opacity-value">100</span>
+            </div>
+            <div class="form-group"><label>主题</label><select id="mammy-theme"><option value="default">默认（浅色）</option><option value="dark">暗黑</option><option value="ocean">海洋</option><option value="purple">紫色系（莫兰迪紫）</option><option value="pink">粉色系（马卡龙粉）</option><option value="orange">橙色系（暖杏色）</option><option value="green">淡绿色系（薄荷绿）</option><option value="custom">自定义</option></select></div>
+            <div class="form-group">
+                <label>全局字体大小（px）</label>
+                <input type="range" id="global-font-size" min="12" max="24" step="1" value="14">
+                <span id="font-size-value">14</span> px
+                <div style="font-size: 14px; margin-top: 8px; color: var(--text-secondary);">拖动滑块调整字体大小（12-24px）</div>
+            </div>
+            <div class="form-group">
+                <label>全局字体样式</label>
+                <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+                    <select id="global-font-family" style="flex: 2; min-width: 150px;">
+                        <option value="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif">系统默认（无衬线）</option>
+                        <option value="'Helvetica Neue', Helvetica, Arial, sans-serif">Helvetica / Arial</option>
+                        <option value="'Times New Roman', Times, serif">Times New Roman（衬线）</option>
+                        <option value="Georgia, 'Times New Roman', serif">Georgia（优雅衬线）</option>
+                        <option value="'Courier New', Courier, monospace">Courier New（等宽）</option>
+                        <option value="'Comic Sans MS', 'Chalkboard SE', cursive">Comic Sans MS（手写体）</option>
+                        <option value="'PingFang SC', 'Microsoft YaHei', sans-serif">苹方 / 微软雅黑</option>
+                    </select>
+                    <div style="display: flex; gap: 4px;">
+                        <button type="button" id="global-font-bold" class="style-toggle-btn" data-style="bold" style="width: 36px; height: 36px; border: 1px solid var(--border); background: var(--card-bg); border-radius: 6px; font-weight: bold; cursor: pointer;">B</button>
+                        <button type="button" id="global-font-italic" class="style-toggle-btn" data-style="italic" style="width: 36px; height: 36px; border: 1px solid var(--border); background: var(--card-bg); border-radius: 6px; font-style: italic; cursor: pointer;">I</button>
+                    </div>
+                </div>
+                <div style="font-size: 12px; color: var(--text-secondary); margin-top: 4px;">选择字体后全局生效，加粗/斜体为开关按钮</div>
+            </div>
+            <div class="form-group">
+                <label>消息合并延迟（秒）</label>
+                <input type="range" id="global-merge-delay" min="0" max="10" step="1" value="3">
+                <span id="global-merge-delay-value">3</span> 秒
+                <div style="font-size: 12px; color: var(--text-secondary);">0秒表示立即发送，不合并消息</div>
+            </div>
+        <div id="custom-theme-section" style="display: none;">
+            <div class="theme-preview-container">
+                <canvas id="theme-preview-canvas" width="200" height="300"></canvas>
+            </div>
+            <div class="form-group"><label>主字体颜色</label><input type="color" id="custom-text-primary" value="#212529"></div>
+            <div class="form-group"><label>OC名字颜色</label><input type="color" id="custom-name-color" value="#212529"></div>
+            <div class="form-group"><label>副字体颜色</label><input type="color" id="custom-text-secondary" value="#6c757d"></div>
+            <div class="form-group"><label>按钮背景色</label><input type="color" id="custom-button-bg" value="#667eea"></div>
+            <div class="form-group"><label>按钮文字颜色</label><input type="color" id="custom-button-text" value="#ffffff"></div>
+            <div class="form-group"><label>主表头背景色</label><input type="color" id="custom-header-bg" value="#667eea"></div>
+            <div class="form-group"><label>主表头文字颜色</label><input type="color" id="custom-header-text" value="#ffffff"></div>
+            <div class="form-group"><label>标头背景色</label><input type="color" id="custom-subheader-bg" value="#667eea"></div>
+            <div class="form-group"><label>标头文字颜色</label><input type="color" id="custom-subheader-text" value="#ffffff"></div>
+            <div class="form-group"><label>导航栏背景色</label><input type="color" id="custom-nav-bg" value="#ffffff"></div>
+            <div class="form-group"><label>导航栏文字颜色</label><input type="color" id="custom-nav-text" value="#6c757d"></div>
+            <div class="form-group"><label>导航栏激活色</label><input type="color" id="custom-nav-active" value="#667eea"></div>
+            <div class="form-group"><label>卡片背景色</label><input type="color" id="custom-card-bg" value="#ffffff"></div>
+            <div class="form-group"><label>边框颜色</label><input type="color" id="custom-border" value="#e9ecef"></div>
+        </div>
+            <div class="settings-group">
+                <h3>气泡样式（全局默认）</h3>
+                <div class="form-group">
+                    <label>气泡形状</label>
+                    <select id="global-bubble-shape">
+                        <option value="rounded">圆角</option>
+                        <option value="pointed">尖角</option>
+                        <option value="cloud">云朵</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>气泡背景色</label>
+                    <input type="color" id="global-bubble-bg-color" value="#e9ecef">
+                </div>
+                <div class="form-group">
+                    <label>花纹样式</label>
+                    <select id="global-bubble-pattern">
+                        <option value="none">无</option>
+                        <option value="stripes">条纹</option>
+                        <option value="dots">点阵</option>
+                        <option value="grid">网格</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>文字颜色</label>
+                    <input type="color" id="global-bubble-text-color" value="#212529">
+                </div>
+                <div class="form-group">
+                    <label>气泡预览</label>
+                    <div class="bubble-preview" id="global-bubble-preview">你好，这是一条测试消息</div>
+                </div>
+            </div>
+            <div class="form-group"><label>我的自设</label><textarea id="mammy-self-setting" rows="4" placeholder="输入妈咪的设定描述..."></textarea></div>
+        </div>
+        <div class="tab-content" id="worldbooks-tab">
+            <div class="worldbook-list" id="worldbook-list"></div>
+            <button class="add-worldbook-btn" onclick="chatManager.openWorldBookEditor(null)">➕ 添加世界观</button>
+        </div>
+        <div class="tab-content" id="api-tab">
+            <div class="form-group"><label>API URL</label><input type="text" id="mammy-api-url" placeholder="示例：https://api.longcat.chat/openai/v1/chat/completions"></div>
+            <div class="form-group"><label>API Key</label><input type="password" id="mammy-api-key" placeholder="输入您的API密钥"></div>
+            <div class="form-group">
+                <label>模型名称</label>
+                <div style="display: flex; gap: 8px; align-items: center;">
+                    <input type="text" id="mammy-model-name" placeholder="如：LongCat-Flash-Thinking-2601" style="flex: 1;">
+                    <button type="button" class="submit-btn" onclick="chatManager.fetchModels()" style="padding: 6px 12px; font-size: 12px;">获取模型</button>
+                </div>
+            </div>
+            <div class="form-group">
+                <button class="submit-btn" onclick="chatManager.testAPI()" id="test-api-btn">测试连接</button>
+                <span id="api-test-status"></span>
+            </div>
+        </div>
+        <div class="tab-content" id="emotions-tab">
+            <div id="emotions-manager"></div>
+            <button class="add-emotion-group-btn" onclick="chatManager.addEmotionGroup()">➕ 添加分组</button>
+        </div>
+        <div class="tab-content" id="auto-tab">
+            <div class="auto-generate-settings">
+                <!-- 角色自动转发频率 -->
+                <div class="auto-section">
+                    <h4>📤 角色自动转发频率</h4>
+                    <div class="oc-freq-list" id="forward-oc-list">
+                        <!-- 动态生成每个OC的转发频率滑块 -->
+                    </div>
+                    <div style="font-size: 12px; color: var(--text-secondary); margin-top: 8px;">
+                        控制角色看到动态/帖子时主动转发的概率。动态和论坛共用此频率。值越高，角色越容易转发。
+                    </div>
+                </div>
+
+                <!-- 上下文记忆（独立模块） -->
+                <div class="auto-section">
+                    <h4>🧠 上下文记忆</h4>
+                    <div class="form-group">
+                        <label>记忆消息条数 (1-1000)</label>
+                        <input type="range" id="context-length" min="1" max="1000" step="1" value="10">
+                        <span id="context-length-value">10</span>
+                    </div>
+                    <div style="font-size: 12px; color: var(--text-secondary); margin-top: 4px;">控制单聊和群聊中 AI 能读取的历史消息条数，值越大 AI 越了解上下文</div>
+                </div>
+
+                <!-- 动态自动生成 -->
+                <div class="auto-section">
+                    <h4>动态自动生成</h4>
+                    <div class="form-group">
+                        <label><input type="checkbox" id="auto-dynamics-switch"> 启用动态自动生成</label>
+                    </div>
+                    <div class="form-group">
+                        <label>动态生成间隔</label>
+                        <div style="display: flex; gap: 8px; align-items: center;">
+                            <input type="number" id="auto-dynamics-interval" min="1" max="60" value="30" style="width: 80px;">
+                            <select id="auto-dynamics-unit">
+                                <option value="minute">分钟</option>
+                                <option value="hour">小时</option>
+                                <option value="day">天</option>
+                            </select>
+                        </div>
+                        <div style="font-size: 12px; color: var(--text-secondary); margin-top: 4px;">每隔设定的时间，系统会根据每个OC的频率滑块决定是否生成动态</div>
+                    </div>
+                    <div class="oc-freq-list" id="dynamics-oc-list">
+                        <!-- 动态生成 OC 滑块列表 -->
+                    </div>
+                </div>
+
+                <!-- 论坛自动生成 -->
+                <div class="auto-section">
+                    <h4>论坛自动生成</h4>
+                    <div class="form-group">
+                        <label><input type="checkbox" id="auto-forum-switch"> 启用论坛自动生成</label>
+                    </div>
+                    <div class="form-group">
+                        <label>论坛生成间隔</label>
+                        <div style="display: flex; gap: 8px; align-items: center;">
+                            <input type="number" id="auto-forum-interval" min="1" max="60" value="30" style="width: 80px;">
+                            <select id="auto-forum-unit">
+                                <option value="minute">分钟</option>
+                                <option value="hour">小时</option>
+                                <option value="day">天</option>
+                            </select>
+                        </div>
+                        <div style="font-size: 12px; color: var(--text-secondary); margin-top: 4px;">勾选启用后，每隔设定的时间自动生成论坛帖子</div>
+                    </div>
+
+                    <div class="sub-section">
+                        <h5>OC 角色</h5>
+                        <div class="oc-freq-list" id="forum-oc-list">
+                            <!-- 动态生成 OC 滑块列表 -->
+                        </div>
+                    </div>
+
+                    <div class="sub-section">
+                        <h5>固定 NPC</h5>
+                        <div class="form-group">
+                            <label>发帖频率 (0-10)</label>
+                            <input type="range" id="auto-fixed-npc-freq" min="0" max="10" step="1" value="0">
+                            <span class="freq-value">0</span>
+                        </div>
+                        <div class="form-group">
+                            <label>每次发帖人数 (1-5)</label>
+                            <input type="number" id="auto-fixed-npc-count" min="1" max="5" value="1" style="width: 80px;">
+                        </div>
+                    </div>
+
+                    <div class="sub-section">
+                        <h5>同人太太</h5>
+                        <div class="form-group">
+                            <label>发帖频率 (0-10)</label>
+                            <input type="range" id="auto-writer-freq" min="0" max="10" step="1" value="0">
+                            <span class="freq-value">0</span>
+                        </div>
+                        <div class="form-group">
+                            <label>每次发帖人数 (1-5)</label>
+                            <input type="number" id="auto-writer-count" min="1" max="5" value="1" style="width: 80px;">
+                        </div>
+                    </div>
+
+                    <div class="sub-section">
+                        <h5>路人 NPC</h5>
+                        <div class="form-group">
+                            <label>发帖频率 (0-10)</label>
+                            <input type="range" id="auto-random-npc-freq" min="0" max="10" step="1" value="0">
+                            <span class="freq-value">0</span>
+                        </div>
+                        <div class="form-group">
+                            <label>每次发帖人数 (1-5)</label>
+                            <input type="number" id="auto-random-npc-count" min="1" max="5" value="1" style="width: 80px;">
+                        </div>
+                    </div>
+
+                </div>
+
+                <!-- 论坛热闹度控制 -->
+                <div class="auto-section">
+                    <h4>🔥 论坛热闹度</h4>
+                    <div class="form-group">
+                        <label>评论数量范围（最少 - 最多）</label>
+                        <div style="display: flex; gap: 8px; align-items: center;">
+                            <input type="number" id="forum-comment-min" min="0" max="500" value="3" style="width: 70px;">
+                            <span>到</span>
+                            <input type="number" id="forum-comment-max" min="0" max="500" value="6" style="width: 70px;">
+                        </div>
+                        <div style="font-size: 12px; color: var(--text-secondary); margin-top: 4px;">每篇帖子生成时随机选取范围内的评论条数，最大可设500</div>
+                    </div>
+                    <div class="form-group">
+                        <label>评论温度（多样性）</label>
+                        <input type="range" id="forum-comment-temperature" min="0.5" max="1.5" step="0.1" value="0.9">
+                        <span id="forum-comment-temperature-value">0.9</span>
+                        <div style="font-size: 12px; color: var(--text-secondary); margin-top: 4px;">越高评论越有创意和随机性，越低越保守</div>
+                    </div>
+                    <div class="form-group">
+                        <label>点赞数量范围（最少 - 最多）</label>
+                        <div style="display: flex; gap: 8px; align-items: center;">
+                            <input type="number" id="forum-like-min" min="0" max="200" value="2" style="width: 70px;">
+                            <span>到</span>
+                            <input type="number" id="forum-like-max" min="0" max="200" value="5" style="width: 70px;">
+                        </div>
+                        <div style="font-size: 12px; color: var(--text-secondary); margin-top: 4px;">每篇帖子生成时随机选取范围内的点赞数</div>
+                    </div>
+                </div>
+
+                <!-- 写手模板库模块 -->
+                <div class="auto-section">
+                    <h4>写手模板库</h4>
+                    <div id="writer-templates-manager"></div>
+                    <button class="submit-btn" onclick="chatManager.addWriterTemplate()">➕ 添加模板</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 写手模板编辑模态框 -->
+        <div id="writer-template-modal" class="modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3 id="writer-template-modal-title">添加写手模板</h3>
+                    <button class="close-btn" onclick="chatManager.closeWriterTemplateModal()">✕</button>
+                </div>
+                <div class="modal-body">
+                    <div class="form-group"><label>模板名称</label><input type="text" id="writer-template-name" placeholder="输入模板名称"></div>
+                    <div class="form-group"><label>写手提示词</label><textarea id="writer-template-prompt" rows="4" placeholder="描述写手风格和偏好..."></textarea></div>
+                    <div class="form-group"><label>输出长度</label><select id="writer-template-length"><option value="short">短</option><option value="medium" selected>中</option><option value="long">长</option></select></div>
+                </div>
+                <div class="modal-footer">
+                    <button class="cancel-btn" onclick="chatManager.closeWriterTemplateModal()">取消</button>
+                    <button class="submit-btn" onclick="chatManager.saveWriterTemplate()">保存</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="tab-content" id="data-tab">
+            <div class="form-group"><button class="submit-btn" onclick="chatManager.exportData()">导出数据</button></div>
+            <div class="form-group"><label>导入数据</label><input type="file" id="import-file" accept=".json" onchange="chatManager.importData(this.files[0])"></div>
+        </div>
+        <div class="mammy-center-footer">
+            <button class="cancel-btn" onclick="chatManager.closeMammyCenter()">取消</button>
+            <button class="submit-btn" onclick="chatManager.saveMammySettings()">保存设置</button>
+        </div>
+    </div>
+</div>
+
+        <!-- 聊天窗口（默认隐藏） -->
+        <div id="chat-window" class="chat-window">
+            <!-- 顶部栏 -->
+            <header class="chat-header">
+                <button id="back-btn" class="back-btn" style="position: relative;">
+                    ←
+                    <span id="back-unread-badge" style="display: none; position: absolute; top: -4px; right: -4px; background: #ff3b30; color: white; border-radius: 50%; min-width: 18px; height: 18px; font-size: 11px; line-height: 18px; text-align: center; padding: 0 4px; box-sizing: border-box;">0</span>
+                </button>
+                <div class="chat-user-info">
+                    <div class="chat-avatar">
+                        <span id="chat-avatar-emoji">👤</span>
+                    </div>
+                    <div class="chat-title-wrapper">
+                        <h2 id="chat-title">聊天名称</h2>
+                        <div id="chat-signature" class="chat-signature"></div>
+                    </div>
+                </div>
+            </header>
+
+            <!-- 群公告栏（可收起） -->
+            <div id="group-notice-bar" class="group-notice-bar" style="display: none;">
+                <div class="notice-content">
+                    <span class="notice-icon">📢</span>
+                    <span id="group-notice-text"></span>
+                </div>
+                <button id="toggle-notice-btn" class="notice-toggle-btn">▲</button>
+            </div>
+
+            <!-- 消息区域 -->
+            <div id="chat-messages" class="chat-messages">
+                <!-- 消息将动态生成 -->
+            </div>
+
+            <!-- 输入区域 -->
+            <div class="chat-input-area">
+                <div id="quote-bar" class="quote-bar" style="display: none;"></div>
+                <div class="input-controls">
+                    <button id="emoji-btn" class="emoji-btn">😊</button>
+                    <input type="text" id="msg-input" class="msg-input" placeholder="输入消息...">
+                    <button id="add-btn" class="add-btn">➕</button>
+                    <button id="send-btn" class="send-btn">发送</button>
+                </div>
+            </div>
+
+            <!-- 多选工具栏 -->
+            <div id="multi-select-toolbar" class="multi-select-toolbar" style="display: none;">
+                <button id="cancel-multi-select" class="toolbar-btn">取消</button>
+                <span id="selected-count" class="selected-count">已选择 0 条</span>
+                <button id="delete-selected" class="toolbar-btn primary">删除</button>
+                <button id="forward-selected" class="toolbar-btn primary">转发</button>
+            </div>
+
+            <!-- 统一的底部弹窗容器 -->
+            <div id="bottom-sheet" class="bottom-sheet">
+                <!-- 加号菜单内容 -->
+                <div class="sheet-content menu-content">
+                    <div class="menu-grid">
+                        <div class="menu-item" data-action="reply">
+                            <span class="menu-icon">↩️</span>
+                            <span class="menu-text">重新回复</span>
+                        </div>
+                        <div class="menu-item" data-action="clear">
+                            <span class="menu-icon">🗑️</span>
+                            <span class="menu-text">清空</span>
+                        </div>
+                        <div class="menu-item" data-action="voice">
+                            <span class="menu-icon">🎤</span>
+                            <span class="menu-text">心声</span>
+                        </div>
+                        <div class="menu-item" data-action="transfer">
+                            <span class="menu-icon">💸</span>
+                            <span class="menu-text">转账</span>
+                        </div>
+                        <div class="menu-item" data-action="block">
+                            <span class="menu-icon">🚫</span>
+                            <span class="menu-text">拉黑</span>
+                        </div>
+                        <div class="menu-item" data-action="diary">
+                            <span class="menu-icon">📔</span>
+                            <span class="menu-text">心情日记</span>
+                        </div>
+                        <div class="menu-item" data-action="music">
+                            <span class="menu-icon">🎵</span>
+                            <span class="menu-text">最近音乐</span>
+                        </div>
+                        <div class="menu-item" data-action="tasks">
+                            <span class="menu-icon">✅</span>
+                            <span class="menu-text">任务清单</span>
+                        </div>
+                        <div class="menu-item" data-action="secret">
+                            <span class="menu-icon">🔒</span>
+                            <span class="menu-text">秘密日记</span>
+                        </div>
+                        <div class="menu-item" data-action="rotate">
+                            <span class="menu-icon">🔄</span>
+                            <span class="menu-text">生成新内容</span>
+                        </div>
+                                                <div class="menu-item" data-action="sendImage">
+                            <span class="menu-icon">🖼️</span>
+                            <span class="menu-text">发送图片</span>
+                        </div>
+                        <div class="menu-item" data-action="sendVideo">
+                            <span class="menu-icon">🎬</span>
+                            <span class="menu-text">发送视频</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 表情面板内容 -->
+                <div class="sheet-content emoji-content">
+                    <div class="emoji-categories">
+                        <div class="category" data-category="angry">
+                            <h3>愤怒</h3>
+                            <div class="emoji-list">
+                                <span class="emoji-item" data-emoji="😠">😠</span>
+                                <span class="emoji-item" data-emoji="😤">😤</span>
+                                <span class="emoji-item" data-emoji="🤬">🤬</span>
+                            </div>
+                        </div>
+                        <div class="category" data-category="happy">
+                            <h3>开心</h3>
+                            <div class="emoji-list">
+                                <span class="emoji-item" data-emoji="😄">😄</span>
+                                <span class="emoji-item" data-emoji="😃">😃</span>
+                                <span class="emoji-item" data-emoji="😁">😁</span>
+                            </div>
+                        </div>
+                        <div class="category" data-category="sad">
+                            <h3>悲伤</h3>
+                            <div class="emoji-list">
+                                <span class="emoji-item" data-emoji="😢">😢</span>
+                                <span class="emoji-item" data-emoji="😭">😭</span>
+                                <span class="emoji-item" data-emoji="😔">😔</span>
+                            </div>
+                        </div>
+                        <div class="category" data-category="surprised">
+                            <h3>惊讶</h3>
+                            <div class="emoji-list">
+                                <span class="emoji-item" data-emoji="😮">😮</span>
+                                <span class="emoji-item" data-emoji="😲">😲</span>
+                                <span class="emoji-item" data-emoji="😱">😱</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 发布动态弹窗 -->
+            <div id="publish-dynamic-modal" class="modal">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h3>发布动态</h3>
+                        <button class="close-btn" onclick="chatManager.closePublishDynamicModal()">✕</button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="form-group">
+                            <label for="dynamic-text-input">分享你的想法...</label>
+                            <div class="dynamic-input-wrapper">
+                                <textarea id="dynamic-text-input" rows="4" placeholder="说点什么..."></textarea>
+                                <button type="button" id="dynamic-mention-btn" class="dynamic-mention-btn" title="@好友">@</button>
+                            </div>
+                            <div id="dynamic-mentioned-tags" class="dynamic-mentioned-tags"></div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button class="cancel-btn" onclick="chatManager.closePublishDynamicModal()">取消</button>
+                        <button class="submit-btn" onclick="chatManager.publishTextDynamic()">发布</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 创建群聊弹窗 -->
+            <div id="create-group-modal" class="modal">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h3>创建群聊</h3>
+                        <button class="close-btn" onclick="chatManager.closeCreateGroupModal()">✕</button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="form-group">
+                            <label for="group-name-input">群聊名称</label>
+                            <input type="text" id="group-name-input" placeholder="输入群聊名称">
+                        </div>
+                        <div class="form-group">
+                            <label for="member-selection">选择成员（至少选择2人）</label>
+                            <div class="selection-controls">
+                                <button type="button" onclick="chatManager.selectAllMembers()">全选</button>
+                                <button type="button" onclick="chatManager.deselectAllMembers()">取消全选</button>
+                            </div>
+                            <div class="member-selection" id="member-selection">
+                                <!-- 成员列表将动态生成 -->
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button class="cancel-btn" onclick="chatManager.closeCreateGroupModal()">取消</button>
+                        <button class="submit-btn" onclick="chatManager.createGroup()">创建群聊</button>
+                    </div>
+                </div>
+            </div>
+
+        <!-- 创建角色弹窗 -->
+            <div id="create-character-modal" class="modal">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h3>创建新角色</h3>
+                        <button class="close-btn" onclick="chatManager.closeCreateCharacterModal()">✕</button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="form-group">
+                            <label>角色名称（必填）</label>
+                            <input type="text" id="character-name-input" placeholder="输入角色名称">
+                        </div>
+                        <div class="form-group">
+                            <label>头像（emoji或图片URL，可选）</label>
+                            <input type="text" id="character-avatar-input" placeholder="输入emoji字符或图片URL">
+                        </div>
+                        <div class="form-group">
+                            <label>个性签名（可选）</label>
+                            <textarea id="character-signature-input" rows="2" placeholder="输入个性签名"></textarea>
+                        </div>
+                        <div class="form-group">
+                            <label>网名（可选）</label>
+                            <input type="text" id="character-nickname-input" placeholder="输入角色网名（用于论坛和动态显示）">
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button class="cancel-btn" onclick="chatManager.closeCreateCharacterModal()">取消</button>
+                        <button class="submit-btn" onclick="chatManager.createCharacter()">创建角色</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 群聊设置页 -->
+        <div id="group-settings-panel" class="profile-settings">
+            <header class="settings-header">
+                <button id="close-group-settings" class="close-btn">✕</button>
+                <h2>群聊设置</h2>
+            </header>
+            <div class="settings-content">
+                <!-- 1. 群头像预览区（居中大图） -->
+                <div class="avatar-section">
+                    <div class="settings-avatar" id="group-avatar-preview">
+                        <span id="group-avatar-preview-content">👥</span>
+                    </div>
+                    <input type="text" id="group-settings-avatar-input" class="avatar-url-input" placeholder="输入头像URL或emoji，如：👥 或 https://...">
+                    <p class="avatar-hint">点击输入框修改群头像</p>
+                </div>
+
+                <!-- 2. 成员列表网格（直接显示，无需折叠） -->
+                <div class="settings-group">
+                    <h3>群成员</h3>
+                    <div id="group-member-grid" class="member-grid" style="max-height: 250px; overflow-y: auto; display: grid; grid-template-columns: repeat(auto-fill, minmax(80px, 1fr)); gap: 12px; padding: 8px;">
+                        <!-- 成员列表将动态生成 -->
+                    </div>
+                    <div class="form-group" style="margin-top: 12px;">
+                        <button class="submit-btn" onclick="chatManager.showAddMemberModal()">添加成员</button>
+                    </div>
+                </div>
+
+                <!-- 成员禁言管理 -->
+                <div class="settings-group">
+                    <h3>禁言管理</h3>
+                    <div id="group-mute-list" class="member-grid" style="max-height: 250px; overflow-y: auto; display: grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 8px; padding: 8px;">
+                        <!-- 动态生成成员禁言项 -->
+                    </div>
+                    <p class="avatar-hint" style="margin-top: 8px;">点击成员旁的"禁言"按钮设置禁言时长</p>
+                </div>
+
+                <!-- 管理员设置 -->
+                <div class="settings-group">
+                    <h3>管理员设置</h3>
+                    <div id="group-admin-list" class="member-grid" style="max-height: 200px; overflow-y: auto; display: grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 8px; padding: 8px;">
+                        <!-- 动态生成管理员条目 -->
+                    </div>
+                    <div class="form-group" style="margin-top: 12px;">
+                        <button class="submit-btn" id="add-admin-btn">➕ 添加管理员</button>
+                    </div>
+                    <p class="avatar-hint">点击"添加管理员"从群成员中选择</p>
+                </div>
+
+                <!-- NPC 个性化设置分组 -->
+                <div class="settings-group" id="npc-settings-group" style="display: none;">
+                    <h3>NPC 个性化设置</h3>
+                    <div class="form-group">
+                        <label>选择 NPC</label>
+                        <select id="npc-selector" style="width: 100%; padding: 8px; border-radius: 8px; border: 1px solid var(--border);">
+                            <option value="">-- 请选择 NPC --</option>
+                        </select>
+                    </div>
+                    <div id="npc-params-panel" style="display: none;">
+                        <div class="form-group">
+                            <label>回复温度: <span id="npc-temp-value">0.5</span></label>
+                            <input type="range" id="npc-reply-temp" min="0" max="1" step="0.1" value="0.5">
+                        </div>
+                        <div class="form-group">
+                            <label>表情频率: <span id="npc-emoji-freq-value">0.5</span></label>
+                            <input type="range" id="npc-emoji-freq" min="0" max="1" step="0.1" value="0.5">
+                        </div>
+                        <div class="form-group">
+                            <label>发送图片频率: <span id="npc-image-freq-value">0</span></label>
+                            <input type="range" id="npc-image-freq" min="0" max="1" step="0.1" value="0">
+                        </div>
+                        <div class="form-group">
+                            <label>发送视频频率: <span id="npc-video-freq-value">0</span></label>
+                            <input type="range" id="npc-video-freq" min="0" max="1" step="0.1" value="0">
+                        </div>
+                        <div class="form-group">
+                            <button class="submit-btn" id="save-npc-settings-btn">保存 NPC 设置</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 3. 基础信息分组（群名称、我在本群的昵称、聊天背景等） -->
+                <div class="settings-group">
+                    <h3>基础信息</h3>
+                    <div class="form-group">
+                        <label>群名称</label>
+                        <input type="text" id="group-settings-name-input" placeholder="输入群名称">
+                    </div>
+                    <div class="form-group">
+                        <label>我在本群的昵称</label>
+                        <input type="text" id="group-settings-nickname-input" placeholder="输入在本群的昵称">
+                    </div>
+                    <div class="form-group">
+                        <label>群聊天背景</label>
+                        <input type="text" id="group-settings-chatbg-input" placeholder="输入聊天背景图片URL">
+                    </div>
+                </div>
+
+                <!-- 自动发言设置 -->
+                <div class="settings-group">
+                    <h3>自动发言</h3>
+                    <div class="form-group">
+                        <label>
+                            <input type="checkbox" id="group-auto-chat-switch"> 启用自动发言
+                        </label>
+                    </div>
+                    <div class="form-group">
+                        <label>发言间隔</label>
+                        <div style="display: flex; gap: 8px;">
+                            <input type="number" id="group-auto-chat-interval" min="1" max="60" value="30" style="width: 80px;">
+                            <select id="group-auto-chat-unit">
+                                <option value="minute">分钟</option>
+                                <option value="hour">小时</option>
+                                <option value="day">天</option>
+                            </select>
+                        </div>
+                        <div style="font-size: 12px; color: var(--text-secondary); margin-top: 4px;">距离上一条消息经过该时间后，若无人发言，则随机成员主动发言</div>
+                    </div>
+                    <div class="form-group">
+                        <label>全局回复快慢系数: <span id="group-speed-value">1.0</span></label>
+                        <input type="range" id="group-reply-speed" min="0.5" max="3.0" step="0.1" value="1.0">
+                        <div style="font-size: 12px; color: var(--text-secondary);">值越大发言越慢（间隔乘以系数），越小越密集</div>
+                    </div>
+                    <div class="form-group">
+                        <label>对话链最大深度: <span id="group-max-depth-value">4</span></label>
+                        <input type="range" id="group-max-depth" min="1" max="100" step="1" value="4">
+                        <div style="font-size: 12px; color: var(--text-secondary);">控制群成员连续接话的最大轮数，值越大聊得越久</div>
+                    </div>
+                </div>
+
+                <!-- 群公告与拍一拍分组 -->
+                <div class="settings-group">
+                    <h3>群互动设置</h3>
+                    <div class="form-group">
+                        <label>群公告</label>
+                        <textarea id="group-notice-input" rows="3" placeholder="输入群公告内容..."></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label>群拍一拍样式</label>
+                        <input type="text" id="group-pat-style-input" placeholder="例如：拍了拍群，群里下起了红包雨" value="拍了拍群">
+                        <div style="font-size: 12px; color: var(--text-secondary); margin-top: 4px;">拍一拍全体成员时显示的文案</div>
+                    </div>
+                </div>
+
+                <!-- 删除群聊按钮（红色） -->
+                <button id="delete-group-btn" class="delete-btn" style="display: block; margin-bottom: 12px;">删除群聊</button>
+                <button id="save-group-settings" class="save-btn">保存设置</button>
+            </div>
+        </div>
+
+        <!-- 添加成员弹窗 -->
+        <div id="add-member-modal" class="modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3>添加成员</h3>
+                    <button class="close-btn" onclick="chatManager.closeAddMemberModal()">✕</button>
+                </div>
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label>选择成员（从现有联系人中选择）</label>
+                        <div class="selection-controls">
+                            <button type="button" onclick="chatManager.selectAllAvailableMembers()">全选</button>
+                            <button type="button" onclick="chatManager.deselectAllAvailableMembers()">取消全选</button>
+                        </div>
+                        <div class="member-selection" id="available-member-list" style="max-height: 250px; overflow-y: auto;">
+                            <!-- 可选成员列表将动态生成 -->
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="cancel-btn" onclick="chatManager.closeAddMemberModal()">取消</button>
+                    <button class="submit-btn" onclick="chatManager.addMembersToGroup()">添加</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 角色个人设置页 -->
+        <div id="profile-settings" class="profile-settings">
+            <header class="settings-header">
+                <button id="close-settings" class="close-btn">✕</button>
+                <h2>角色设置</h2>
+            </header>
+            <div class="settings-content">
+                <!-- 基础信息分组 -->
+                <div class="settings-group">
+                    <h3>基础信息</h3>
+                    <div class="avatar-section">
+                        <div class="settings-avatar">
+                            <span id="settings-avatar-emoji">👤</span>
+                        </div>
+                        <input type="text" id="avatar-url" class="avatar-url-input" placeholder="输入头像URL或emoji，如：👨 或 https://...">
+                        <p class="avatar-hint">点击头像或输入URL修改</p>
+                    </div>
+                    <div class="form-group">
+                        <label>性别</label>
+                        <select id="character-gender">
+                            <option value="">未设置</option>
+                            <option value="男">男</option>
+                            <option value="女">女</option>
+                            <option value="其他">其他</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>角色名称</label>
+                        <input type="text" id="character-name" placeholder="输入角色名称">
+                    </div>
+                    <div class="form-group">
+                        <label>备注名</label>
+                        <input type="text" id="remark-name" placeholder="输入备注名">
+                    </div>
+                    <div class="form-group">
+                        <label>网名</label>
+                        <div class="input-with-rotate">
+                            <input type="text" id="nickname" placeholder="输入角色网名（用于论坛和动态显示）">
+                            <span class="rotate-btn" onclick="chatManager.rotateField('nickname', event)">🔄</span>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>个性签名</label>
+                        <div class="input-with-rotate">
+                            <textarea id="signature" placeholder="输入个性签名"></textarea>
+                            <span class="rotate-btn" onclick="chatManager.rotateField('signature', event)">🔄</span>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>拍一拍样式</label>
+                        <div class="input-with-rotate">
+                            <input type="text" id="pat-style" placeholder="输入拍一拍文案（如：拍了拍薛厉的蛇尾巴）">
+                            <span class="rotate-btn" onclick="chatManager.rotateField('patStyle', event)">🔄</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 个性化参数分组 -->
+                <div class="settings-group">
+                    <h3>个性化参数</h3>
+                    <div class="form-group">
+                        <label>回复温度: <span id="temp-value">0.5</span></label>
+                        <input type="range" id="reply-temp" min="0" max="1" step="0.1" value="0.5">
+                    </div>
+                    <div class="form-group">
+                        <label>表情频率: <span id="emoji-freq-value">0.5</span></label>
+                        <input type="range" id="emoji-freq" min="0" max="1" step="0.1" value="0.5">
+                    </div>
+                    <div class="form-group">
+                        <label>发送图片卡片频率: <span id="image-freq-value">0</span></label>
+                        <input type="range" id="image-freq" min="0" max="1" step="0.1" value="0">
+                    </div>
+                    <div class="form-group">
+                        <label>发送视频卡片频率: <span id="video-freq-value">0</span></label>
+                        <input type="range" id="video-freq" min="0" max="1" step="0.1" value="0">
+                    </div>
+                    <div class="form-group">
+                        <label>心情日记频率: <span id="mood-diary-freq-value">0.7</span></label>
+                        <input type="range" id="mood-diary-freq" min="0" max="1" step="0.1" value="0.7">
+                    </div>
+                    <div class="form-group">
+                        <label for="auto-reply-switch">自动回复</label>
+                        <label class="switch">
+                            <input type="checkbox" id="auto-reply-switch">
+                            <span class="slider"></span>
+                        </label>
+                    </div>
+                    <div class="form-group">
+                        <label>自动回复频率</label>
+                        <div style="display: flex; gap: 8px;">
+                            <input type="number" id="auto-reply-interval" min="1" step="1" value="3" style="width: 80px;">
+                            <select id="auto-reply-unit">
+                                <option value="minute">分钟</option>
+                                <option value="hour">小时</option>
+                                <option value="day">天</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 外观分组 -->
+                <div class="settings-group">
+                    <h3>外观</h3>
+                    <div class="form-group">
+                        <label>聊天背景</label>
+                        <input type="text" id="chat-bg" placeholder="输入聊天背景图片URL">
+                    </div>
+                    <div class="form-group">
+                        <label>气泡形状</label>
+                        <select id="bubble-shape">
+                            <option value="rounded">圆角</option>
+                            <option value="pointed">尖角</option>
+                            <option value="cloud">云朵</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>气泡背景色</label>
+                        <input type="color" id="bubble-bg-color" value="#e9ecef">
+                    </div>
+                    <div class="form-group">
+                        <label>花纹样式</label>
+                        <select id="bubble-pattern">
+                            <option value="none">无</option>
+                            <option value="stripes">条纹</option>
+                            <option value="dots">点阵</option>
+                            <option value="grid">网格</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>文字颜色</label>
+                        <input type="color" id="bubble-text-color" value="#212529">
+                    </div>
+                    <div class="form-group">
+                        <label>气泡预览</label>
+                        <div class="bubble-preview" id="bubble-preview">你好，这是一条测试消息</div>
+                    </div>
+                </div>
+
+                <!-- 世界观分组 -->
+                <div class="settings-group">
+                    <h3>世界观</h3>
+                    <div class="form-group">
+                        <label>世界观</label>
+                        <select id="world-id">
+                            <option value="">选择世界观</option>
+                            <!-- 选项将通过 JS 动态生成 -->
+                        </select>
+                    </div>
+                </div>
+
+                <!-- 高级分组 -->
+                <div class="settings-group">
+                    <h3>高级</h3>
+                    <div class="form-group">
+                        <label>配对角色</label>
+                        <button class="submit-btn" type="button" onclick="chatManager.showPartnerSelector()">添加配对角色</button>
+                        <div class="partner-tags" id="partner-tags">
+                            <!-- 已选中的配对角色标签将动态生成 -->
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>设定描述</label>
+                        <textarea id="personality-prompt" placeholder="输入角色的人设提示词，用于生成回复内容" rows="6"></textarea>
+                    </div>
+                </div>
+
+                <!-- 删除角色按钮（红色） -->
+                <button id="delete-character-btn" class="delete-btn" style="display: none;">删除角色</button>
+                <button id="save-settings" class="save-btn">保存设置</button>
+            </div>
+        </div>
+
+        <!-- 任务清单面板 -->
+        <div id="task-list-panel" class="profile-settings">
+            <header class="settings-header">
+                <button id="close-task-list" class="close-btn">✕</button>
+                <h2>📋 任务清单</h2>
+            </header>
+            <div class="settings-content">
+                <div class="task-controls">
+                    <button id="refresh-tasks-btn" class="submit-btn">🔄 刷新进度</button>
+                    <div class="task-date-selector">
+                        <input type="date" id="task-date-picker" class="task-date-input">
+                    </div>
+                </div>
+                <div id="task-list-container" class="task-list-container">
+                    <!-- 便签纸将动态生成 -->
+                </div>
+            </div>
+        </div>
+
+        <!-- 秘密日记面板 -->
+        <div id="secret-diary-panel" class="profile-settings">
+            <header class="settings-header">
+                <button id="close-secret-diary" class="close-btn">✕</button>
+                <h2>🔒 秘密日记</h2>
+            </header>
+            <div class="settings-content secret-diary-content">
+                <div class="secret-diary-controls">
+                    <button id="refresh-secret-diary-btn" class="submit-btn">✨ 刷新今日日记</button>
+                    <div class="diary-date-selector">
+                        <input type="date" id="secret-diary-date-picker" class="diary-date-input">
+                    </div>
+                </div>
+
+                <!-- 日历视图 -->
+                <div class="diary-calendar-container">
+                    <div class="calendar-header">
+                        <button id="diary-prev-month-btn" class="calendar-nav">◀</button>
+                        <span id="diary-calendar-month-year"></span>
+                        <button id="diary-next-month-btn" class="calendar-nav">▶</button>
+                    </div>
+                    <div class="calendar-weekdays">
+                        <span>日</span><span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span>六</span>
+                    </div>
+                    <div id="diary-calendar" class="diary-calendar">
+                        <!-- 日历格子动态生成 -->
+                    </div>
+                </div>
+
+                <!-- 日记内容显示区域 -->
+                <div id="secret-diary-entries" class="diary-entries">
+                    <!-- 日记条目将动态生成 -->
+                </div>
+            </div>
+        </div>
+
+        <!-- 心情日记面板 -->
+        <div id="mood-diary-panel" class="profile-settings">
+            <header class="settings-header">
+                <button id="close-mood-diary" class="close-btn">✕</button>
+                <h2>心情日记</h2>
+            </header>
+            <div class="settings-content">
+                <div class="mood-diary-controls">
+                    <button id="refresh-mood-diary-btn" class="submit-btn">✨ 刷新今日心情</button>
+                    <span id="last-mood-update" class="last-update"></span>
+                </div>
+                <div class="mood-calendar-container">
+                    <div class="calendar-header">
+                        <button id="prev-month-btn" class="calendar-nav">◀</button>
+                        <span id="calendar-month-year"></span>
+                        <button id="next-month-btn" class="calendar-nav">▶</button>
+                    </div>
+                    <div class="calendar-weekdays">
+                        <span>日</span><span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span>六</span>
+                    </div>
+                    <div id="mood-calendar" class="mood-calendar">
+                        <!-- 日历格子动态生成 -->
+                    </div>
+                </div>
+
+                <!-- 情绪统计区域 -->
+                <div class="mood-stats-container">
+                    <div class="stats-header">
+                        <h3>情绪统计</h3>
+                        <div class="stats-view-buttons">
+                            <button class="stats-view-btn active" data-period="day">日</button>
+                            <button class="stats-view-btn" data-period="week">周</button>
+                            <button class="stats-view-btn" data-period="month">月</button>
+                            <button class="stats-view-btn" data-period="year">年</button>
+                        </div>
+                        <div style="font-size: 0.7rem; color: var(--text-secondary); margin-top: 8px;">* 图表显示当前选中时间范围内的情绪占比</div>
+                    </div>
+                    <div class="charts-wrapper">
+                        <div class="chart-box">
+                            <canvas id="mood-pie-chart" width="200" height="200"></canvas>
+                        </div>
+                        <div class="chart-box">
+                            <canvas id="mood-bar-chart" width="400" height="200"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- AI 总结区域 -->
+                <div class="mood-summary-container">
+                    <div class="summary-header">
+                        <h3>📊 情绪分析报告</h3>
+                        <button id="generate-summary-btn" class="submit-btn">✨ 生成总结</button>
+                    </div>
+                    <div id="mood-summary-content" class="mood-summary-content">
+                        <p style="color: var(--text-secondary); text-align: center;">点击生成总结，AI将分析角色的情绪变化</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 心情便签纸模态框 -->
+        <div id="mood-sticky-modal" class="modal">
+            <div class="modal-content sticky-note">
+                <div class="modal-header">
+                    <h3>心情便签</h3>
+                    <button class="close-btn" onclick="chatManager.closeMoodSticky()">✕</button>
+                </div>
+                <div class="modal-body" id="sticky-body">
+                    <!-- 内容动态填充 -->
+                </div>
+                <div class="modal-footer">
+                    <button class="cancel-btn" onclick="chatManager.closeMoodSticky()">关闭</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 最近音乐面板 -->
+        <div id="music-panel" class="profile-settings">
+            <header class="settings-header">
+                <button id="close-music-panel" class="close-btn">✕</button>
+                <h2>最近音乐</h2>
+            </header>
+            <div class="settings-content">
+                <div class="music-controls">
+                    <button id="refresh-music-btn" class="submit-btn">✨ 刷新今日歌单</button>
+                    <div class="music-date-selector">
+                        <input type="date" id="music-date-picker" class="music-date-input">
+                    </div>
+                </div>
+
+                <!-- 歌单展示区域 -->
+                <div id="music-list" class="music-list-container">
+                    <!-- 歌单卡片将动态生成 -->
+                </div>
+
+                <!-- 统计排名区域 -->
+                <div class="music-stats-container">
+                    <h3>🎧 听歌排行</h3>
+                    <div id="music-stats-list" class="music-rank-list">
+                        <!-- 排名列表动态生成 -->
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 配对角色选择弹窗 -->
+        <div id="partner-selector-modal" class="modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3>选择配对角色</h3>
+                    <button class="close-btn" onclick="chatManager.closePartnerSelector()">✕</button>
+                </div>
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label>从现有角色中选择（可多选）</label>
+                        <div class="member-selection" id="partner-selection-list">
+                            <!-- 选项将动态生成 -->
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="cancel-btn" onclick="chatManager.closePartnerSelector()">取消</button>
+                    <button class="submit-btn" onclick="chatManager.addPartners()">添加</button>
+                </div>
+            </div>
+        </div>
+
+        
+        <!-- 底部导航栏 -->
+        <nav class="bottom-nav">
+            <button class="nav-item active" data-page="message" onclick="chatManager.switchPage('message')">
+                <span class="nav-icon">💬<span class="badge" id="message-badge" style="display: none;"></span></span>
+                <span class="nav-text">消息</span>
+            </button>
+            <button class="nav-item" data-page="forum" onclick="chatManager.switchPage('forum')">
+                <span class="nav-icon">📱<span class="badge" id="forum-badge" style="display: none;"></span></span>
+                <span class="nav-text">论坛</span>
+            </button>
+            <button class="nav-item" data-page="contact" onclick="chatManager.switchPage('contact')">
+                <span class="nav-icon">👥</span>
+                <span class="nav-text">联系人</span>
+            </button>
+            <button class="nav-item" data-page="dynamic" onclick="chatManager.switchPage('dynamic')">
+                <span class="nav-icon">🌐<span class="badge" id="dynamic-badge" style="display: none;"></span></span>
+                <span class="nav-text">动态</span>
+            </button>
+        </nav>
+
+        <!-- 回到顶部按钮 -->
+        <div id="back-to-top-btn" class="back-to-top-btn" onclick="chatManager.scrollToTop()">
+            ↑
+        </div>
+    </div>
+
+    <!-- 世界书编辑模态框 -->
+        <div id="worldbook-modal" class="modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3 id="worldbook-modal-title">编辑世界观</h3>
+                    <button class="close-btn" onclick="chatManager.closeWorldBookModal()">✕</button>
+                </div>
+                <div class="modal-body">
+                    <div class="form-group"><label>世界观名称</label><input type="text" id="worldbook-name"></div>
+                    <div class="form-group"><label>世界观描述</label><textarea id="worldbook-desc" rows="4"></textarea></div>
+                    <div class="form-group">
+                        <label>固定NPC <button type="button" class="toggle-npc-btn" onclick="chatManager.toggleNPCList()">▼</button></label>
+                        <div id="npc-list-container" class="npc-list-container" style="display: none;">
+                            <div class="npc-list" id="npc-list"></div>
+                            <div class="npc-form">
+                                <div class="form-group"><label>NPC名称</label><input type="text" id="world-npc-name" placeholder="输入NPC名称"></div>
+                                <div class="form-group"><label>头像URL或Emoji</label><input type="text" id="world-npc-avatar" placeholder="输入头像URL或emoji，如：👤 或 https://..."></div>
+                                <div class="form-group"><label>设定描述</label><textarea id="world-npc-setting" rows="4" placeholder="输入NPC设定描述"></textarea></div>
+                                <div class="form-group"><label>与角色关系</label><input type="text" id="world-npc-relation" placeholder="输入与角色的关系"></div>
+                                <div class="form-group"><button class="submit-btn" onclick="chatManager.confirmWorldNPC()">确认添加</button><button class="cancel-btn" onclick="chatManager.clearWorldNPCForm()">取消</button></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="cancel-btn" onclick="chatManager.closeWorldBookModal()">取消</button>
+                    <button class="submit-btn" onclick="chatManager.saveWorldBook()">保存</button>
+                </div>
+            </div>
+        </div>
+
+    <!-- 选择表情分组模态框 -->
+    <div id="select-emotion-group-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>添加表情分组</h3>
+                <button class="close-btn" onclick="chatManager.closeSelectEmotionGroupModal()">✕</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>选择情绪分组</label>
+                    <select id="emotion-group-select" style="width: 100%; padding: 8px; border-radius: 8px; border: 1px solid var(--border);">
+                        <!-- 选项将动态生成 -->
+                    </select>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="cancel-btn" onclick="chatManager.closeSelectEmotionGroupModal()">取消</button>
+                <button class="submit-btn" onclick="chatManager.confirmSelectEmotionGroup()">确认添加</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 模型选择模态框 -->
+    <div id="model-select-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>选择模型</h3>
+                <button class="close-btn" onclick="document.getElementById('model-select-modal').classList.remove('active')">✕</button>
+            </div>
+            <div class="modal-body" id="model-list-container">
+                <!-- 模型列表动态生成 -->
+            </div>
+            <div class="modal-footer">
+                <button class="cancel-btn" onclick="document.getElementById('model-select-modal').classList.remove('active')">取消</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 确认模态框 -->
+    <div id="confirm-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="confirm-modal-title">确认操作</h3>
+                <button class="close-btn" onclick="this.closest('.modal').classList.remove('active')">✕</button>
+            </div>
+            <div class="modal-body">
+                <p id="confirm-modal-message">确定要执行此操作吗？</p>
+            </div>
+            <div class="modal-footer">
+                <button class="cancel-btn" id="confirm-cancel-btn">取消</button>
+                <button class="submit-btn" id="confirm-confirm-btn">确认</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 选择成员模态框（用于生成新内容） -->
+    <div id="select-member-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>选择成员</h3>
+                <button class="close-btn" onclick="this.closest('.modal').classList.remove('active')">✕</button>
+            </div>
+            <div class="modal-body">
+                <div class="member-selection-list" id="member-selection-list">
+                    <!-- 成员列表将动态生成 -->
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="cancel-btn" id="select-member-cancel">取消</button>
+                <button class="submit-btn" id="select-member-confirm">确认</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 选择心声对象模态框 -->
+    <div id="select-voice-member-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>选择心声对象</h3>
+                <button class="close-btn" onclick="chatManager.closeSelectVoiceMemberModal()">✕</button>
+            </div>
+            <div class="modal-body">
+                <div class="member-selection-list" id="voice-member-list">
+                    <!-- 成员列表将动态生成 -->
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="cancel-btn" onclick="chatManager.closeSelectVoiceMemberModal()">取消</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 心声模态框 -->
+    <div id="voice-thoughts-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>💭 心声</h3>
+                <button class="close-btn" onclick="this.closest('.modal').classList.remove('active')">✕</button>
+            </div>
+            <div class="modal-body">
+                <div id="voice-thoughts-content" style="min-height: 100px; display: flex; align-items: center; justify-content: center;">
+                    <div class="spinner" style="width: 20px; height: 20px;"></div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="cancel-btn" onclick="this.closest('.modal').classList.remove('active')">关闭</button>
+                <button class="submit-btn" id="send-voice-thoughts-btn">发送到聊天</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 回溯模态框 -->
+    <div id="reply-back-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>选择回溯点</h3>
+                <button class="close-btn" onclick="this.closest('.modal').classList.remove('active')">✕</button>
+            </div>
+            <div class="modal-body">
+                <p style="margin-bottom: 12px; color: #666;">选择一条消息作为回溯点（该消息之后的所有消息将被删除）</p>
+                <div id="reply-back-list" style="max-height: 300px; overflow-y: auto;">
+                    <!-- 消息列表将动态生成 -->
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="cancel-btn" onclick="this.closest('.modal').classList.remove('active')">取消</button>
+                <button class="submit-btn" id="confirm-reply-back-btn" disabled>确认回溯</button>
+            </div>
+        </div>
+    </div>
+
+    </div>
+
+    <!-- @ 选择弹窗 -->
+    <div id="dynamic-mention-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>选择要 @ 的好友</h3>
+                <button class="close-btn" onclick="chatManager.closeDynamicMentionModal()">✕</button>
+            </div>
+            <div class="modal-body">
+                <div class="member-selection" id="dynamic-mention-list">
+                    <!-- 动态生成 -->
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="cancel-btn" onclick="chatManager.closeDynamicMentionModal()">取消</button>
+                <button class="submit-btn" id="dynamic-mention-confirm">确认</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
