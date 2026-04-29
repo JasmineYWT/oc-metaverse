@@ -429,7 +429,7 @@ class ChatManager {
 
         // 确保滚动事件绑定
         if (!append) {
-            this.setupInfiniteScroll('forum-page', 'forum');
+            this.setupInfiniteScroll('forum-list', 'forum');
         }
     }
 
@@ -663,7 +663,7 @@ class ChatManager {
             // 获取角色基本信息
             const characterInfo = {
                 id: chat.id,
-                name: chat.nickname || chat.remarkName || chat.name,
+                name: chat.name,
                 personality: chat.personalityPrompt || '',
                 worldId: chat.worldId
             };
@@ -694,7 +694,7 @@ class ChatManager {
                 // 获取配对角色基本信息
                 const partnerInfo = {
                     id: partnerChat.id,
-                    name: partnerChat.nickname || partnerChat.remarkName || partnerChat.name,
+                    name: partnerChat.name,
                     personality: partnerChat.personalityPrompt || '',
                     worldId: partnerChat.worldId
                 };
@@ -4229,13 +4229,37 @@ ${forceTags.length > 0 ? '【重要】你必须带上以下标签：' + forceTag
         }
     }
 
-    // 9. 剩余的点赞继续添加
-    while (likeCount < maxLikes) {
-        const liker = availableLikers[likeCount];
-        if (liker) {
-            await this.addSingleLike(post, liker);
+    // 9. 使用新的 AI 点赞逻辑替换原来的循环
+    // 9.1 分离 OC 和路人
+    const ocLikers = availableLikers.filter(i => i.type === 'oc' || i.type === 'character');
+    const nonOCLikers = availableLikers.filter(i => i.type !== 'oc' && i.type !== 'character');
+
+    // 9.2 让每个 OC 用 AI 判断是否点赞
+    const likingOCs = [];
+    for (const oc of ocLikers) {
+        const shouldLike = await this.shouldOCLike(postId, oc);
+        if (shouldLike) {
+            likingOCs.push(oc);
         }
+    }
+
+    // 9.3 先让决定点赞的 OC 点赞
+    for (const oc of likingOCs) {
+        if (likeCount >= maxLikes) break;
+        await this.addSingleLike(post, oc);
         likeCount++;
+    }
+
+    // 9.4 剩余的点赞名额由路人随机补充
+    if (likeCount < maxLikes && nonOCLikers.length > 0) {
+        const neededLikes = maxLikes - likeCount;
+        const shuffledNPCs = [...nonOCLikers].sort(() => Math.random() - 0.5);
+        const selectedNPCs = shuffledNPCs.slice(0, Math.min(neededLikes, shuffledNPCs.length));
+
+        for (const npc of selectedNPCs) {
+            await this.addSingleLike(post, npc);
+            likeCount++;
+        }
     }
 
     // 9.5. 触发帖子作者回复部分评论（配对角色评论必回）
@@ -4489,6 +4513,60 @@ ${forceTags.length > 0 ? '【重要】你必须带上以下标签：' + forceTag
 
         // 随机间隔 300-800ms，模拟逐一有人点赞
         await new Promise(r => setTimeout(r, 300 + Math.random() * 500));
+    }
+
+    /**
+     * 判断 OC 是否应该点赞某个帖子（AI 判断）
+     * @param {string} postId - 帖子 ID
+     * @param {Object} oc - OC 身份对象
+     * @returns {boolean} - 是否点赞
+     */
+    async shouldOCLike(postId, oc) {
+        const post = this.forumPosts.find(p => p.id === postId);
+        if (!post) return false;
+
+        // 如果帖子 likedBy 已包含该 OC 的名字，直接返回 false
+        if (post.likedBy && post.likedBy.includes(oc.name)) {
+            return false;
+        }
+
+        // 如果 API 未配置，按 oc.replyTemp || 0.5 的概率随机返回
+        if (!this.isAPIConfigured()) {
+            const likeProbability = oc.replyTemp || 0.5;
+            return Math.random() < likeProbability;
+        }
+
+        // 调用 AI 判断
+        const chat = this.getChat(oc.id);
+        if (!chat) return false;
+
+        // 构建提示词
+        const prompt = `你是一个OC角色，你的信息：
+名字：${oc.name}
+性格：${chat.characterInfo || '普通性格'}
+
+现在有一个论坛帖子：
+标题：${post.title}
+内容：${post.content}
+作者：${post.authorId}
+
+请根据你的性格和帖子内容，判断你是否会点赞这个帖子。如果会点赞，请回复"true"，否则回复"false"。只需要回复 true 或 false，不需要其他内容。`;
+
+        try {
+            const result = await this.callAIForDynamic(prompt, {
+                temperature: 0.7,
+                maxTokens: 10
+            });
+
+            // 清理返回结果，只保留 true 或 false
+            const cleanedResult = result.toLowerCase().trim();
+            return cleanedResult === 'true';
+        } catch (error) {
+            console.error('shouldOCLike AI 调用失败:', error);
+            // AI 调用失败时，使用随机概率
+            const likeProbability = oc.replyTemp || 0.5;
+            return Math.random() < likeProbability;
+        }
     }
 
     /**
@@ -17724,7 +17802,7 @@ clearNPCForm() {
         if (pageName === 'dynamic') {
             this.renderDynamics();
             this.bindDynamicButtons();
-            this.setupInfiniteScroll('dynamic-page', 'dynamic');
+            this.setupInfiniteScroll('dynamic-list', 'dynamic');
             this.hideDynamicBadge();
         }
 
@@ -17733,7 +17811,7 @@ clearNPCForm() {
             this.isSearchMode = false;
             this.searchResults = null;
             this.renderForum();
-            this.setupInfiniteScroll('forum-page', 'forum');
+            this.setupInfiniteScroll('forum-list', 'forum');
             // 绑定热搜榜时间切换按钮事件
             document.querySelector('.hot-rank-tabs')?.addEventListener('click', (e) => {
                 const tab = e.target.closest('.hot-rank-tab');

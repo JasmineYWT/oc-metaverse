@@ -11339,6 +11339,13 @@ input[type="range"]::-moz-range-thumb {
 #forum-list {
     background-color: transparent !important;
     padding-top: 10px !important;
+    height: 100%;
+    overflow-y: auto;
+}
+
+#dynamic-list {
+    height: 100%;
+    overflow-y: auto;
 }
 #forum-list .post-content {
     margin: 0 !important;
