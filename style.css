@@ -11554,3 +11554,41 @@ input[type="range"]::-moz-range-thumb {
 .comment-reactions .reaction-dislike {
     color: #f44336;
 }
+
+/* 热评标签样式 */
+.hot-comment-badge {
+    display: inline-block;
+    background: linear-gradient(135deg, #ff6b6b, #ff8e53);
+    color: white;
+    font-size: 11px;
+    padding: 2px 8px;
+    border-radius: 10px;
+    margin-right: 4px;
+    font-weight: 600;
+}
+
+/* 可点击的赞踩按钮 */
+.comment-reactions .clickable {
+    cursor: pointer;
+    transition: all 0.2s ease;
+    padding: 2px 6px;
+    border-radius: 4px;
+}
+
+.comment-reactions .clickable:hover {
+    background-color: rgba(0, 0, 0, 0.05);
+    transform: scale(1.05);
+}
+
+.reaction-like.clickable, .reaction-dislike.clickable {
+    cursor: pointer;
+    transition: transform 0.1s;
+}
+
+.reaction-like.clickable:hover, .reaction-dislike.clickable:hover {
+    transform: scale(1.15);
+}
+
+.reaction-like.active, .reaction-dislike.active {
+    filter: brightness(1.3);
+}

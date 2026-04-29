@@ -4273,7 +4273,7 @@ ${forceTags.length > 0 ? '【重要】你必须带上以下标签：' + forceTag
     let currentTotal = (post.comments || []).length;
 
     if (currentTotal < maxTotalComments && post.comments && post.comments.length > 0) {
-        // 选取部分一级评论作为“争议点”，每种争议点都可能引发争论
+        // 选取部分一级评论作为”争议点”，每种争议点都可能引发争论
         const topComments = post.comments.filter(c => !c.parentId);
         const controversialComments = topComments.filter(() => Math.random() < 0.3); // 30% 评论引发争议
 
@@ -4329,7 +4329,7 @@ ${forceTags.length > 0 ? '【重要】你必须带上以下标签：' + forceTag
                 const bystander = this.getRandomBystanderIdentity(post);
                 if (bystander) {
                     const bystanderComment = await this.callAIForForumComment(bystander, post, targetComment);
-                    if (bystanderComment) {
+                    if (bstanderComment) {
                         post.comments.push({
                             id: Date.now() + Math.random(),
                             authorId: bystander.id,
@@ -4347,6 +4347,58 @@ ${forceTags.length > 0 ? '【重要】你必须带上以下标签：' + forceTag
             // 如果接近上限则停止争议链
             if (currentTotal >= maxTotalComments - 2) break;
         }
+    }
+
+    // 9.9. 延迟触发角色和路人给评论互赞互踩
+    const allCommentIds = (post.comments || []).map(c => c.id);
+    if (allCommentIds.length > 0) {
+        // 随机延迟 10-30 秒后开始
+        const delay = 10000 + Math.random() * 20000;
+        setTimeout(async () => {
+            const availableActors = this.getAllIdentities().filter(i => i.id !== post.authorId);
+            // 随机选几个角色/路人来互动
+            const actorCount = Math.min(Math.floor(Math.random() * 5) + 3, availableActors.length);
+            const shuffledActors = [...availableActors].sort(() => Math.random() - 0.5).slice(0, actorCount);
+
+            for (const actor of shuffledActors) {
+                // 每人随机选 1-3 条评论来赞或踩
+                const targetCount = Math.floor(Math.random() * 3) + 1;
+                const shuffledComments = [...allCommentIds].sort(() => Math.random() - 0.5).slice(0, targetCount);
+
+                for (const commentId of shuffledComments) {
+                    const comment = post.comments.find(c => c.id === commentId);
+                    if (!comment) continue;
+
+                    // 80% 赞，20% 踩（可以根据角色性格调整）
+                    const isLike = Math.random() < 0.8;
+                    if (isLike) {
+                        comment.likes = (comment.likes || 0) + 1;
+                        comment.likedBy = comment.likedBy || [];
+                        comment.likedBy.push(actor.name);
+                    } else {
+                        comment.dislikes = (comment.dislikes || 0) + 1;
+                        comment.dislikedBy = comment.dislikedBy || [];
+                        comment.dislikedBy.push(actor.name);
+                    }
+
+                    // 心情影响：被赞开心，被踩不开心
+                    if (comment.authorId && comment.authorId !== 'user_mummy') {
+                        const commentAuthor = this.getChat(comment.authorId);
+                        if (commentAuthor) {
+                            if (!commentAuthor.tempMoodModifiers) commentAuthor.tempMoodModifiers = [];
+                            commentAuthor.tempMoodModifiers.push({
+                                type: isLike ? 'comment_liked' : 'comment_disliked',
+                                value: isLike ? 0.05 : -0.05,
+                                expireAt: Date.now() + 30 * 60 * 1000 // 30分钟有效期
+                            });
+                        }
+                    }
+                }
+            }
+
+            localStorage.setItem('forumData', JSON.stringify(this.forumPosts));
+            this.renderForum(false);
+        }, delay);
     }
 
     // 10. 触发角色自动转发论坛帖子
@@ -5290,10 +5342,13 @@ ${parentComment ? `\n你正在回复 ${parentComment.authorName} 的评论："${
                 <div class="comment-author-avatar">${authorAvatar}</div>
                 <div class="comment-content-wrapper">
                     <span class="comment-author-name">${authorName}:</span>
-                    <span class="comment-text">${comment.content}</span>
+                    <div class="comment-text">
+                        ${(comment.likes || 0) >= 5 ? '<span class="hot-comment-badge">🔥热评</span>' : ''}
+                        ${comment.content}
+                    </div>
                     <div class="comment-reactions">
-                        <span class="reaction-like">👍 ${comment.likes || 0}</span>
-                        <span class="reaction-dislike">👎 ${comment.dislikes || 0}</span>
+                        <span class="reaction-like clickable" onclick="chatManager.toggleCommentReaction(${comment.id}, 'like')">👍 <span class="like-count">${comment.likes || 0}</span></span>
+                        <span class="reaction-dislike clickable" onclick="chatManager.toggleCommentReaction(${comment.id}, 'dislike')">👎 <span class="dislike-count">${comment.dislikes || 0}</span></span>
                     </div>
                     <button class="reply-btn" onclick="chatManager.replyToComment(${comment.id})">回复</button>
                 </div>
@@ -17424,6 +17479,7 @@ clearNPCForm() {
         this.mammySettings.autoGenerate.forum.commentTemperature = parseFloat(document.getElementById('forum-comment-temperature').value) || 0.9;
         this.mammySettings.autoGenerate.forum.likeMin = parseInt(document.getElementById('forum-like-min').value) || 2;
         this.mammySettings.autoGenerate.forum.likeMax = parseInt(document.getElementById('forum-like-max').value) || 5;
+        this.mammySettings.autoGenerate.forum.commentReactionFreq = parseInt(document.getElementById('auto-comment-reaction-freq').value) || 5;
         // 上下文记忆条数
         this.mammySettings.autoGenerate.contextLength = parseInt(document.getElementById('context-length').value);
         // 在保存设置后，根据开关状态启动/停止定时器
@@ -22756,10 +22812,10 @@ ${avoidHint}
                     `<span class="comment-author-name">${authorName}:</span>` +
                     `<span class="comment-time" style="flex-shrink:0; margin-left:8px;">${comment.time}</span>` +
                 `</div>` +
-                `<div class="comment-text">${comment.content}</div>` +
+                `<div class="comment-text">${(comment.likes || 0) >= 5 ? '<span class="hot-comment-badge">🔥热评</span>' : ''}${comment.content}</div>` +
                 `<div class="comment-reactions">
-                    <span class="reaction-like">👍 ${comment.likes || 0}</span>
-                    <span class="reaction-dislike">👎 ${comment.dislikes || 0}</span>
+                    <span class="reaction-like clickable" onclick="chatManager.toggleCommentReaction(${comment.id}, 'like')">👍 <span class="like-count">${comment.likes || 0}</span></span>
+                    <span class="reaction-dislike clickable" onclick="chatManager.toggleCommentReaction(${comment.id}, 'dislike')">👎 <span class="dislike-count">${comment.dislikes || 0}</span></span>
                 </div>` +
                 `<div class="comment-actions" style="text-align:right; margin-top:4px;">` +
                     `<button class="reply-btn" onclick="chatManager.replyToComment(${comment.id})">回复</button>` +
@@ -22835,6 +22891,75 @@ ${avoidHint}
         const commentInput = document.getElementById('post-comment-input');
         if (commentInput) {
             commentInput.focus();
+        }
+    }
+
+    /**
+     * 切换评论的赞/踩状态
+     */
+    toggleCommentReaction(commentId, type) {
+        const postId = this.currentDetailPostId;
+        if (!postId) return;
+        const post = this.forumPosts.find(p => p.id === postId);
+        if (!post) return;
+        const comment = post.comments.find(c => c.id === commentId);
+        if (!comment) return;
+
+        // 检查是否已经点过
+        const alreadyLiked = comment.likedBy?.includes('user_mummy');
+        const alreadyDisliked = comment.dislikedBy?.includes('user_mummy');
+
+        if (type === 'like') {
+            if (alreadyLiked) {
+                comment.likes = Math.max(0, (comment.likes || 0) - 1);
+                comment.likedBy = comment.likedBy.filter(id => id !== 'user_mummy');
+            } else {
+                comment.likes = (comment.likes || 0) + 1;
+                comment.likedBy = comment.likedBy || [];
+                comment.likedBy.push('user_mummy');
+                // 如果之前踩过，取消踩
+                if (alreadyDisliked) {
+                    comment.dislikes = Math.max(0, (comment.dislikes || 0) - 1);
+                    comment.dislikedBy = comment.dislikedBy.filter(id => id !== 'user_mummy');
+                }
+            }
+        } else if (type === 'dislike') {
+            if (alreadyDisliked) {
+                comment.dislikes = Math.max(0, (comment.dislikes || 0) - 1);
+                comment.dislikedBy = comment.dislikedBy.filter(id => id !== 'user_mummy');
+            } else {
+                comment.dislikes = (comment.dislikes || 0) + 1;
+                comment.dislikedBy = comment.dislikedBy || [];
+                comment.dislikedBy.push('user_mummy');
+                // 如果之前赞过，取消赞
+                if (alreadyLiked) {
+                    comment.likes = Math.max(0, (comment.likes || 0) - 1);
+                    comment.likedBy = comment.likedBy.filter(id => id !== 'user_mummy');
+                }
+            }
+        }
+
+        localStorage.setItem('forumData', JSON.stringify(this.forumPosts));
+
+        // 局部更新赞踩数字，避免整页刷新导致滚动回顶部
+        const likeSpan = document.querySelector(`.reaction-like[onclick*="${commentId}"] .like-count`);
+        const dislikeSpan = document.querySelector(`.reaction-dislike[onclick*="${commentId}"] .dislike-count`);
+        if (likeSpan) likeSpan.textContent = comment.likes || 0;
+        if (dislikeSpan) dislikeSpan.textContent = comment.dislikes || 0;
+
+        // 更新热评标识（如果赞数跨过5的阈值）
+        const commentTextDiv = document.querySelector(`.comment-item[style*="${commentId}"] .comment-text`)
+            || document.querySelector(`.reaction-like[onclick*="${commentId}"]`).closest('.comment-content-wrapper').querySelector('.comment-text');
+        if (commentTextDiv) {
+            const existingBadge = commentTextDiv.querySelector('.hot-comment-badge');
+            if ((comment.likes || 0) >= 5 && !existingBadge) {
+                const badge = document.createElement('span');
+                badge.className = 'hot-comment-badge';
+                badge.textContent = '🔥热评';
+                commentTextDiv.insertBefore(badge, commentTextDiv.firstChild);
+            } else if ((comment.likes || 0) < 5 && existingBadge) {
+                existingBadge.remove();
+            }
         }
     }
 
