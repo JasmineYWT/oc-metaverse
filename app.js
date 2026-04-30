@@ -4445,45 +4445,161 @@ ${forceTags.length > 0 ? '【重要】你必须带上以下标签：' + forceTag
      * 为帖子自动添加一些随机点赞（模拟路人、角色等）
      * @param {number} postId - 帖子 ID
      */
-    async generateAILikes(postId) {
+    async generateSmartLikes(postId) {
         const post = this.forumPosts.find(p => p.id === postId);
         if (!post) return;
-
         if (!post.likedBy) post.likedBy = [];
 
-        // 获取所有可用的身份（排除作者和已经点赞的）
-        const allIds = this.getAllIdentities()
-            .filter(i => i.id !== post.authorId && !post.likedBy.includes(i.name));
+        // 获取所有身份（排除帖子作者和妈咪）
+        const identityPool = this.getAllIdentities().filter(i => i.id !== post.authorId && i.id !== 'user_mummy');
 
-        if (allIds.length === 0) return;
+        // 分离 OC/固定NPC 和 路人NPC
+        const ocIdentities = [];
+        const fixedNPCIdentities = [];
+        const otherIdentities = []; // 路人
+        identityPool.forEach(i => {
+            if (i.type === 'character' || i.type === 'oc') {
+                ocIdentities.push(i);
+            } else if (i.type === 'fixedNPC') {
+                fixedNPCIdentities.push(i);
+            } else {
+                otherIdentities.push(i);
+            }
+        });
+        const coreIdentities = [...ocIdentities, ...fixedNPCIdentities]; // OC + 世界书固定NPC
 
-        // 随机选择点赞人数（从设置中读取范围）
-        const likeMin = this.mammySettings.autoGenerate.forum.likeMin ?? 2;
-        const likeMax = this.mammySettings.autoGenerate.forum.likeMax ?? 5;
-        const count = Math.min(Math.floor(Math.random() * (likeMax - likeMin + 1)) + likeMin, allIds.length);
-
-        // 将所有身份合并并完全随机打乱，避免 OC 总是优先
-        const shuffled = [...allIds].sort(() => Math.random() - 0.5);
-
-        // 逐个添加点赞，模拟真实感
-        for (const identity of shuffled) {
+        // 用 AI 判断每个核心身份的点赞意愿（可以串行，避免 API 过载）
+        const willingIdentities = [];
+        for (const identity of coreIdentities) {
+            // 使用简单的概率判断或 AI 判断，这里为了准确可以用 shouldInteract 类似逻辑，
+            // 但为了性能，可先随机 + AI 辅助，但要求用 AI 判断，所以调用 shouldInteract
             const chat = this.getChat(identity.id);
-            // 获取显示名称
+            if (chat) {
+                const willLike = await this.shouldInteract(chat, post, 'like');
+                if (willLike) willingIdentities.push(identity);
+            } else {
+                // NPC 对象没有对应 chat，用简化的概率判断
+                if (Math.random() < 0.4) willingIdentities.push(identity);
+            }
+        }
+
+        // 从设置读取点赞区间
+        const forumSettings = this.mammySettings.autoGenerate.forum;
+        const likeMin = forumSettings.likeMin ?? 2;
+        const likeMax = forumSettings.likeMax ?? 5;
+        const targetLikes = Math.floor(Math.random() * (likeMax - likeMin + 1)) + likeMin;
+
+        // 计算还需要多少路人点赞
+        const remainingLikes = Math.max(0, targetLikes - willingIdentities.length);
+        const shuffledOthers = [...otherIdentities].sort(() => Math.random() - 0.5);
+        const selectedOthers = shuffledOthers.slice(0, remainingLikes);
+
+        // 合并最终点赞者列表，打乱顺序使其交替
+        const finalLikers = [...willingIdentities, ...selectedOthers]
+            .sort(() => Math.random() - 0.5);
+
+        // 渐进式添加点赞，每次添加间隔 300-800ms，保持自然感
+        for (const identity of finalLikers) {
+            const chat = this.getChat(identity.id);
             let displayName = identity.name;
             if (chat) {
-                displayName = chat.nickname || chat.remarkName || chat.name;
+                displayName = chat.remarkName || chat.nickname || chat.name;
+            }
+            // 生成随机路人名字如果 identity 没有名字
+            if (!displayName || displayName === identity.id) {
+                displayName = this.generateRandomNPCName();
             }
             post.likedBy.push(displayName);
             post.likes = post.likedBy.length;
-
-            // 每次添加后保存并刷新 UI
             localStorage.setItem('forumData', JSON.stringify(this.forumPosts));
             this.renderForum(false);
-
-            // 随机间隔 300-800ms，模拟逐一有人点赞
             await new Promise(r => setTimeout(r, 300 + Math.random() * 500));
         }
-        console.log(`[自动点赞] 为帖子 ${postId} 添加了 ${shuffled.length} 个点赞`);
+    }
+
+    /**
+     * 生成随机路人名称
+     * @returns {string} 随机路人名称
+     */
+    generateRandomNPCName() {
+        const names = ['吃瓜网友', '路人甲', '小明', '小红', '二次元萌新', '论坛老司机', 'CP粉头子', '磕学家', '细节控', '剧情分析君', '同人画手', '写手小A', '路人乙', '围观群众'];
+        return names[Math.floor(Math.random() * names.length)];
+    }
+
+    /**
+     * 为帖子自动添加智能点赞（OC/固定NPC AI判断 + 路人补充）
+     * @param {number} postId - 帖子 ID
+     */
+    async generateSmartLikes(postId) {
+        const post = this.forumPosts.find(p => p.id === postId);
+        if (!post) return;
+        if (!post.likedBy) post.likedBy = [];
+
+        // 获取所有身份（排除帖子作者和妈咪）
+        const identityPool = this.getAllIdentities().filter(i => i.id !== post.authorId && i.id !== 'user_mummy');
+
+        // 分离 OC/固定NPC 和 路人NPC
+        const ocIdentities = [];
+        const fixedNPCIdentities = [];
+        const otherIdentities = []; // 路人
+        identityPool.forEach(i => {
+            if (i.type === 'character' || i.type === 'oc') {
+                ocIdentities.push(i);
+            } else if (i.type === 'fixedNPC') {
+                fixedNPCIdentities.push(i);
+            } else {
+                otherIdentities.push(i);
+            }
+        });
+        const coreIdentities = [...ocIdentities, ...fixedNPCIdentities]; // OC + 世界书固定NPC
+
+        // 用 AI 判断每个核心身份的点赞意愿（可以串行，避免 API 过载）
+        const willingIdentities = [];
+        for (const identity of coreIdentities) {
+            // 使用简单的概率判断或 AI 判断，这里为了准确可以用 shouldInteract 类似逻辑，
+            // 但为了性能，可先随机 + AI 辅助，但要求用 AI 判断，所以调用 shouldInteract
+            const chat = this.getChat(identity.id);
+            if (chat) {
+                const willLike = await this.shouldInteract(chat, post, 'like');
+                if (willLike) willingIdentities.push(identity);
+            } else {
+                // NPC 对象没有对应 chat，用简化的概率判断
+                if (Math.random() < 0.4) willingIdentities.push(identity);
+            }
+        }
+
+        // 从设置读取点赞区间
+        const forumSettings = this.mammySettings.autoGenerate.forum;
+        const likeMin = forumSettings.likeMin ?? 2;
+        const likeMax = forumSettings.likeMax ?? 5;
+        const targetLikes = Math.floor(Math.random() * (likeMax - likeMin + 1)) + likeMin;
+
+        // 计算还需要多少路人点赞
+        const remainingLikes = Math.max(0, targetLikes - willingIdentities.length);
+        const shuffledOthers = [...otherIdentities].sort(() => Math.random() - 0.5);
+        const selectedOthers = shuffledOthers.slice(0, remainingLikes);
+
+        // 合并最终点赞者列表，打乱顺序使其交替
+        const finalLikers = [...willingIdentities, ...selectedOthers]
+            .sort(() => Math.random() - 0.5);
+
+        // 渐进式添加点赞，每次添加间隔 300-800ms，保持自然感
+        for (const identity of finalLikers) {
+            const chat = this.getChat(identity.id);
+            let displayName = identity.name;
+            if (chat) {
+                displayName = chat.remarkName || chat.nickname || chat.name;
+            }
+            // 生成随机路人名字如果 identity 没有名字
+            if (!displayName || displayName === identity.id) {
+                displayName = this.generateRandomNPCName();
+            }
+            post.likedBy.push(displayName);
+            post.likes = post.likedBy.length;
+            localStorage.setItem('forumData', JSON.stringify(this.forumPosts));
+            this.renderForum(false);
+            await new Promise(r => setTimeout(r, 300 + Math.random() * 500));
+        }
     }
 
     /**
@@ -5215,7 +5331,7 @@ ${parentComment ? `\n你正在回复 ${parentComment.authorName} 的评论："${
         localStorage.setItem('forumData', JSON.stringify(this.forumPosts));
 
         // 重新渲染详情页和论坛列表
-        this.openPostDetail(postId);
+        this.openPostDetail(postId, true);
         this.renderForum();
     }
 
@@ -23181,7 +23297,7 @@ ${avoidHint}
         this.renderForum();
 
         // 重新渲染详情页
-        this.openPostDetail(postId);
+        this.openPostDetail(postId, true);
 
         // 触发被@角色的回复
         this.triggerMentionedReply(postId, content);
@@ -23252,7 +23368,7 @@ ${avoidHint}
             localStorage.setItem('forumData', JSON.stringify(this.forumPosts));
             this.renderForum();
             // 重新打开当前帖子详情页以刷新评论列表
-            this.openPostDetail(postId);
+            this.openPostDetail(postId, true);
             this.showNotification('评论已删除');
 
             modal.classList.remove('active');
