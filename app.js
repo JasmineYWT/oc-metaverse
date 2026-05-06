@@ -4687,7 +4687,16 @@ ${forceTags.length > 0 ? '【重要】你必须带上以下标签：' + forceTag
     let personaTag = '路人';
     let roleInstruction = '';
 
-    if (chat && post.authorId && chat.partnerIds?.includes(post.authorId)) {
+    // === 新增：作者回复评论 ===
+    if (identity.id === post.authorId) {
+        personaTag = 'poster';
+        roleInstruction = `你是这篇帖子的作者。有人评论了你的帖子，你需要回复。请用自然的语气回复，表达你的观点、感受或回应对方的看法，但要保持你自己的性格。直接输出回复内容。`;
+    }
+    // === 新增：被帖子提及 ===
+    else if (typeof identity.name === 'string' && post.content && post.content.includes(identity.name)) {
+        personaTag = 'mentioned';
+        roleInstruction = `这篇帖子的内容中提到了你（${identity.name}）。请根据你的角色身份，对帖子中被提及的部分发表看法或回应。语气要符合你的性格，直接输出回复。`;
+    } else if (chat && post.authorId && chat.partnerIds?.includes(post.authorId)) {
         // 配对角色：亲昵、调侃、日常感
         personaTag = 'CP';
         const partnerNames = chat.partnerIds.map(pid => {
@@ -4857,7 +4866,9 @@ ${parentComment ? `\n你正在回复 ${parentComment.authorName} 的评论："${
             '黑粉': [
                 '就这？', '我不理解', '建议清醒一点', '炒作吧这是', '无聊',
                 '看过更好的', '呵呵', '一言难尽'
-            ]
+            ],
+            'poster': ['感谢评论～', '谢谢你的看法！', '嗯，我也这样觉得。'],
+            'mentioned': ['居然提到我？', '我看看写了什么...', '什么，我在里面？']
         };
 
         const pool = commentsByTag[personaTag] || commentsByTag['路人'];

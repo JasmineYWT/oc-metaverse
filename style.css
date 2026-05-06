@@ -11599,3 +11599,11 @@ input[type="range"]::-moz-range-thumb {
 .reaction-like.active, .reaction-dislike.active {
     filter: brightness(1.3);
 }
+
+/* 修复：帖子详情弹窗中的评论不限制行数 */
+#post-detail-modal .comment-text {
+    -webkit-line-clamp: unset;
+    max-height: none;
+    overflow: visible;
+    display: block;
+}
